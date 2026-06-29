@@ -15,7 +15,7 @@ export default function Hero() {
   const [open, setOpen] = useState(false)
   const [titre, setTitre] = useState('Monsieur')
   const [muted, setMuted] = useState(true)
-  const [dancer, setDancer] = useState(false)
+  const [music, setMusic] = useState(false)
 
   const videoRef = useRef(null)
   const sectionRef = useRef(null)
@@ -33,7 +33,7 @@ export default function Hero() {
   useEffect(() => {
     const t1 = setTimeout(() => setOpen(true), 4500)
     const t2 = setTimeout(() => setTitre('Papa'), 10500)
-    const t3 = setTimeout(() => setDancer(true), 10000)
+    const t3 = setTimeout(() => setMusic(true), 10000)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
@@ -243,40 +243,45 @@ export default function Hero() {
         {muted ? 'Son' : 'Muet'}
       </button>
 
-      {/* --- Petit personnage qui danse (entre à +10 s) --- */}
+      {/* --- Notes & clé de musique (apparaissent à +10 s) --- */}
       <AnimatePresence>
-        {dancer && (
+        {music && (
           <motion.div
-            key="dancer"
-            initial={{ opacity: 0, scale: 0, y: 30 }}
+            key="music"
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 15 }}
-            className="absolute bottom-6 left-5 z-40 select-none sm:bottom-8 sm:left-8"
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute bottom-8 left-6 z-40 select-none sm:bottom-10 sm:left-10"
           >
+            {/* clé de musique */}
             <motion.span
               aria-hidden
-              animate={{ y: [-2, -18, -2], opacity: [0, 1, 0] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-              className="absolute -right-3 -top-5 text-lg text-gold-soft"
+              animate={{ rotate: [-5, 5, -5], y: [0, -4, 0] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              className="block text-5xl text-gold-soft drop-shadow-lg sm:text-6xl"
             >
-              ♪
+              🎼
             </motion.span>
-            <motion.span
-              aria-hidden
-              animate={{ y: [-2, -22, -2], opacity: [0, 1, 0] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 0.5, ease: 'easeOut' }}
-              className="absolute -right-7 -top-2 text-base text-gold/80"
-            >
-              ♫
-            </motion.span>
-            <motion.div
-              animate={{ rotate: [-13, 13, -13], y: [0, -10, 0], scaleY: [1, 0.9, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="text-5xl drop-shadow-lg sm:text-6xl"
-            >
-              🕺
-            </motion.div>
+
+            {/* notes qui s'envolent */}
+            {['♪', '♫', '🎵', '♩', '♬'].map((n, i) => (
+              <motion.span
+                key={i}
+                aria-hidden
+                className="absolute text-xl text-gold/90 sm:text-2xl"
+                style={{ left: `${8 + i * 14}px`, bottom: 44 }}
+                animate={{
+                  y: [-4, -58, -4],
+                  x: [0, i % 2 ? 12 : -10, 0],
+                  opacity: [0, 1, 0],
+                  rotate: [0, i % 2 ? 18 : -18, 0],
+                }}
+                transition={{ duration: 2.6 + i * 0.3, repeat: Infinity, delay: i * 0.4, ease: 'easeOut' }}
+              >
+                {n}
+              </motion.span>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
