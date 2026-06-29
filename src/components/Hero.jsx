@@ -6,21 +6,19 @@ const COVER_IMAGE = 'chemises.jpg'
 const VIDEO_FILE = 'fond.mp4'
 
 /**
- * Hero — intro (image -> fumée) sur une vidéo de fond LOCALE (.mp4).
- *  La vidéo locale joue toujours (autoplay muet) — aucun blocage possible.
- *  Le son s'active à +4 s (ou au moindre mouvement avant) ; son volume descend
- *  progressivement jusqu'à la moitié (50 %) quand on s'éloigne. Danseur à +10 s.
+ * Hero — intro (image -> fumée) sur une vidéo de fond locale (.mp4).
+ *  La vidéo joue en fond (muet) ; au moment où le nom mute en « Papa », le son
+ *  se déclenche. Au défilement, le volume descend progressivement jusqu'à 50 %.
  */
 export default function Hero() {
   const [open, setOpen] = useState(false)
   const [titre, setTitre] = useState('Monsieur')
-  const [muted, setMuted] = useState(true)
-  const [music, setMusic] = useState(false)
 
   const videoRef = useRef(null)
   const sectionRef = useRef(null)
   const mutedRef = useRef(true)
   const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
+  const papaRef = useRef(false)
 
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
   const mp4 = `${import.meta.env.BASE_URL}assets/${VIDEO_FILE}`
@@ -29,45 +27,50 @@ export default function Hero() {
     if (videoRef.current) videoRef.current.volume = Math.max(0, Math.min(1, v01))
   }
 
-  // Déroulé : image -> fumée, mutation du nom, entrée du danseur
-  useEffect(() => {
-    const t1 = setTimeout(() => setOpen(true), 4500)
-    const t2 = setTimeout(() => setTitre('Papa'), 10500)
-    const t3 = setTimeout(() => setMusic(true), 10000)
-    return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-      clearTimeout(t3)
-    }
-  }, [])
-
-  // Son : auto à +4 s, ou au moindre mouvement avant
-  useEffect(() => {
-    const events = ['pointerdown', 'pointermove', 'mousemove', 'touchstart', 'keydown', 'wheel', 'scroll']
-    let done = false
-    const remove = () => events.forEach((e) => window.removeEventListener(e, enable))
-    const enable = () => {
-      if (done) return
-      done = true
+  // Active le son (et relance la lecture) — uniquement une fois « Papa » affiché
+  const unmuteNow = () => {
+    if (!papaRef.current) return
+    const v = videoRef.current
+    if (v) {
       try {
-        if (videoRef.current) {
-          videoRef.current.muted = false
-          videoRef.current.volume = 0.5 + volRef.current * 0.5
-          videoRef.current.play?.()
-        }
+        v.muted = false
+        v.volume = 0.5 + volRef.current * 0.5
+        v.play?.()
       } catch {
         /* ignore */
       }
-      mutedRef.current = false
-      setMuted(false)
-      remove()
     }
-    events.forEach((e) => window.addEventListener(e, enable, { passive: true }))
-    const t = setTimeout(enable, 4000)
+    mutedRef.current = false
+  }
+
+  // Déroulé : image -> fumée ; à « Papa », le nom mute ET le son se déclenche
+  useEffect(() => {
+    const t1 = setTimeout(() => setOpen(true), 4500)
+    const t2 = setTimeout(() => {
+      setTitre('Papa')
+      papaRef.current = true
+      unmuteNow()
+    }, 10500)
     return () => {
-      remove()
-      clearTimeout(t)
+      clearTimeout(t1)
+      clearTimeout(t2)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Filet de sécurité : si le navigateur bloque le son auto, le premier geste
+  // APRÈS l'apparition de « Papa » l'active.
+  useEffect(() => {
+    const onGesture = () => unmuteNow()
+    window.addEventListener('pointerdown', onGesture)
+    window.addEventListener('keydown', onGesture)
+    window.addEventListener('touchstart', onGesture)
+    return () => {
+      window.removeEventListener('pointerdown', onGesture)
+      window.removeEventListener('keydown', onGesture)
+      window.removeEventListener('touchstart', onGesture)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Position de défilement -> fraction visible
@@ -98,21 +101,6 @@ export default function Hero() {
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
   }, [])
-
-  const toggleSound = (e) => {
-    e.stopPropagation()
-    if (!videoRef.current) return
-    if (muted) {
-      videoRef.current.muted = false
-      videoRef.current.play?.()
-      mutedRef.current = false
-      setMuted(false)
-    } else {
-      videoRef.current.muted = true
-      mutedRef.current = true
-      setMuted(true)
-    }
-  }
 
   return (
     <section
@@ -204,7 +192,7 @@ export default function Hero() {
                 </motion.span>
               </AnimatePresence>
             </span>{' '}
-            Rhodes
+            RHODES
           </h1>
 
           <motion.div
@@ -232,59 +220,6 @@ export default function Hero() {
           </motion.span>
         </motion.a>
       </div>
-
-      {/* Bouton son */}
-      <button
-        onClick={toggleSound}
-        aria-label={muted ? 'Activer le son' : 'Couper le son'}
-        className="absolute bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border border-white/20 bg-noir-900/50 px-3.5 py-2 text-xs uppercase tracking-widest text-cream-100/90 backdrop-blur-sm transition-colors hover:border-gold hover:text-gold-soft sm:bottom-6 sm:right-6 sm:px-4"
-      >
-        <span aria-hidden>{muted ? '🔇' : '🔊'}</span>
-        {muted ? 'Son' : 'Muet'}
-      </button>
-
-      {/* --- Notes & clé de musique (apparaissent à +10 s) --- */}
-      <AnimatePresence>
-        {music && (
-          <motion.div
-            key="music"
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute bottom-8 left-6 z-40 select-none sm:bottom-10 sm:left-10"
-          >
-            {/* clé de musique */}
-            <motion.span
-              aria-hidden
-              animate={{ rotate: [-5, 5, -5], y: [0, -4, 0] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-              className="block text-5xl text-gold-soft drop-shadow-lg sm:text-6xl"
-            >
-              🎼
-            </motion.span>
-
-            {/* notes qui s'envolent */}
-            {['♪', '♫', '🎵', '♩', '♬'].map((n, i) => (
-              <motion.span
-                key={i}
-                aria-hidden
-                className="absolute text-xl text-gold/90 sm:text-2xl"
-                style={{ left: `${8 + i * 14}px`, bottom: 44 }}
-                animate={{
-                  y: [-4, -58, -4],
-                  x: [0, i % 2 ? 12 : -10, 0],
-                  opacity: [0, 1, 0],
-                  rotate: [0, i % 2 ? 18 : -18, 0],
-                }}
-                transition={{ duration: 2.6 + i * 0.3, repeat: Infinity, delay: i * 0.4, ease: 'easeOut' }}
-              >
-                {n}
-              </motion.span>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </section>
   )
 }
