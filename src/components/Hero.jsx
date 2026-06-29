@@ -2,88 +2,127 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { hero } from '../data'
 
-// Vidéo de fond (YouTube).
 const VIDEO_ID = 'veRMxTZw_Zg'
-
-// Image de départ (modifiable). Doit exister dans /public/assets/.
 const COVER_IMAGE = 'chemises.jpg'
 
+// Charge l'API IFrame de YouTube une seule fois.
+let ytApiPromise
+function loadYouTubeApi() {
+  if (typeof window === 'undefined') return Promise.resolve(null)
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT)
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise((resolve) => {
+      const prev = window.onYouTubeIframeAPIReady
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof prev === 'function') prev()
+        resolve(window.YT)
+      }
+      const tag = document.createElement('script')
+      tag.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(tag)
+    })
+  }
+  return ytApiPromise
+}
+
 /**
- * Hero — séquence d'ouverture :
- *   1. une image couvre l'écran ~4,5 s, la vidéo joue déjà derrière
- *   2. l'image PART EN FUMÉE (dissolution + volutes qui montent) -> la vidéo apparaît
- *   3. le nom apparaît, en grand, sur une vitrine de verre encadrée d'or
- *   4. mutation : « Monsieur » devient « Papa » -> Papa Rhodes
- *
- *  Son : autoplay muet (exigence navigateur) ; le son s'active au premier
- *  contact, puis son VOLUME baisse progressivement quand on s'éloigne (scroll).
+ * Hero — intro (image -> fumée) sur une vidéo de fond (API YouTube).
+ *  Son : auto à +4 s (ou au moindre mouvement avant) ; au défilement, le volume
+ *  descend PROGRESSIVEMENT jusqu'à la moitié (50 %), via l'API setVolume.
  */
 export default function Hero() {
-  const [open, setOpen] = useState(false) // l'image est-elle partie ?
+  const [open, setOpen] = useState(false)
   const [titre, setTitre] = useState('Monsieur')
   const [muted, setMuted] = useState(true)
 
-  const iframeRef = useRef(null)
+  const holderRef = useRef(null) // div remplacé par l'iframe YouTube
+  const playerRef = useRef(null) // instance YT.Player
   const sectionRef = useRef(null)
   const mutedRef = useRef(true)
-  const volRef = useRef(1) // volume cible 0..1 selon la position de défilement
+  const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
 
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const src =
-    `https://www.youtube.com/embed/${VIDEO_ID}` +
-    `?autoplay=1&mute=1&controls=0&loop=1&playlist=${VIDEO_ID}` +
-    `&playsinline=1&modestbranding=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`
 
-  const command = (func, args = []) =>
-    iframeRef.current?.contentWindow?.postMessage(
-      JSON.stringify({ event: 'command', func, args }),
-      '*',
-    )
+  const yt = (method, ...args) => {
+    try {
+      playerRef.current?.[method]?.(...args)
+    } catch {
+      /* lecteur pas encore prêt */
+    }
+  }
 
-  // Déroulé temporel
+  // --- Création du lecteur YouTube ---
   useEffect(() => {
-    const t1 = setTimeout(() => setOpen(true), 4500) // l'image part en fumée
-    const t2 = setTimeout(() => setTitre('Papa'), 10500) // mutation du nom
+    let cancelled = false
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !YT || !holderRef.current) return
+      playerRef.current = new YT.Player(holderRef.current, {
+        videoId: VIDEO_ID,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          loop: 1,
+          playlist: VIDEO_ID,
+          playsinline: 1,
+          modestbranding: 1,
+          rel: 0,
+          fs: 0,
+          disablekb: 1,
+          iv_load_policy: 3,
+        },
+        events: {
+          onReady: (e) => {
+            e.target.mute()
+            e.target.setVolume(100)
+            e.target.playVideo()
+          },
+        },
+      })
+    })
+    return () => {
+      cancelled = true
+      try {
+        playerRef.current?.destroy?.()
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [])
+
+  // Déroulé temporel (image -> fumée, mutation du nom)
+  useEffect(() => {
+    const t1 = setTimeout(() => setOpen(true), 4500)
+    const t2 = setTimeout(() => setTitre('Papa'), 10500)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
     }
   }, [])
 
-  // Le son s'active AUTOMATIQUEMENT 4 s apres le lancement de la video
-  // (et plus tot au moindre mouvement, si l'utilisateur agit avant).
+  // Son : auto à +4 s, ou au moindre mouvement avant
   useEffect(() => {
-    const events = [
-      'pointerdown',
-      'pointermove',
-      'mousemove',
-      'touchstart',
-      'keydown',
-      'wheel',
-      'scroll',
-    ]
+    const events = ['pointerdown', 'pointermove', 'mousemove', 'touchstart', 'keydown', 'wheel', 'scroll']
     let done = false
     const remove = () => events.forEach((e) => window.removeEventListener(e, enable))
     const enable = () => {
       if (done) return
       done = true
-      command('unMute')
-      command('playVideo')
+      yt('unMute')
+      yt('playVideo')
       mutedRef.current = false
       setMuted(false)
       remove()
     }
     events.forEach((e) => window.addEventListener(e, enable, { passive: true }))
-    const t = setTimeout(enable, 4000) // activation auto a +4 s
-
+    const t = setTimeout(enable, 4000)
     return () => {
       remove()
       clearTimeout(t)
     }
   }, [])
 
-  // Position de défilement -> volume cible (mesuré sur la hauteur réelle du hero)
+  // Position de défilement -> fraction visible
   useEffect(() => {
     const onScroll = () => {
       const h = sectionRef.current?.offsetHeight || window.innerHeight || 1
@@ -98,19 +137,17 @@ export default function Hero() {
     }
   }, [])
 
-  // Lissage du volume image par image (réduction vraiment progressive)
+  // Lissage du volume : 100 % en haut -> 50 % quand on s'éloigne (progressif)
   useEffect(() => {
     let raf
     let cur = 100
     let last = -1
     const loop = () => {
-      // Plein volume en haut (100 %), reduit progressivement jusqu'a la moitie
-      // (50 %) quand on s'eloigne de la video.
       const target = 50 + volRef.current * 50
-      cur += (target - cur) * 0.1 // easing
+      cur += (target - cur) * 0.1
       const v = Math.round(cur)
       if (!mutedRef.current && v !== last) {
-        command('setVolume', [v])
+        yt('setVolume', v)
         last = v
       }
       raf = requestAnimationFrame(loop)
@@ -122,11 +159,11 @@ export default function Hero() {
   const toggleSound = (e) => {
     e.stopPropagation()
     if (muted) {
-      command('unMute')
+      yt('unMute')
       mutedRef.current = false
       setMuted(false)
     } else {
-      command('mute')
+      yt('mute')
       mutedRef.current = true
       setMuted(true)
     }
@@ -137,23 +174,18 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-[100svh] min-h-[500px] w-full overflow-hidden bg-noir-900"
     >
-      {/* --- Vidéo de fond --- */}
+      {/* --- Vidéo de fond (API YouTube) --- */}
       <div className="absolute inset-0 overflow-hidden">
-        <iframe
-          ref={iframeRef}
-          title="Fond vidéo"
-          src={src}
-          allow="autoplay; encrypted-media"
-          frameBorder="0"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2"
-        />
+        <div className="yt-cover pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2">
+          <div ref={holderRef} className="h-full w-full" />
+        </div>
       </div>
 
       {/* Voiles pour la lisibilité */}
       <div className="pointer-events-none absolute inset-0 bg-noir-900/40" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-noir-900/85 via-noir-900/20 to-noir-900/45" />
 
-      {/* --- L'image, qui part en fumée --- */}
+      {/* --- L'image qui part en fumée --- */}
       <motion.div
         aria-hidden
         className="absolute inset-0 z-10"
@@ -168,7 +200,7 @@ export default function Hero() {
         <img src={img} alt="" className="h-full w-full object-cover" />
       </motion.div>
 
-      {/* --- Volutes de fumée qui montent au moment de la dissolution --- */}
+      {/* --- Volutes de fumée --- */}
       <div aria-hidden className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         {open &&
           [0, 1, 2, 3, 4, 5].map((i) => (
@@ -194,11 +226,7 @@ export default function Hero() {
       <div className="relative z-30 flex h-full flex-col items-center justify-center px-5 text-center">
         <motion.div
           initial={{ opacity: 0, y: 40, scale: 0.94 }}
-          animate={{
-            opacity: open ? 1 : 0,
-            y: open ? 0 : 40,
-            scale: open ? 1 : 0.94,
-          }}
+          animate={{ opacity: open ? 1 : 0, y: open ? 0 : 40, scale: open ? 1 : 0.94 }}
           transition={{ duration: 1.5, delay: open ? 1.1 : 0, ease: [0.22, 1, 0.36, 1] }}
           className="relative mx-3 w-full max-w-[92vw] overflow-hidden rounded-[1.6rem] border border-gold/45 bg-white/10 px-6 py-7 shadow-[0_30px_120px_-20px_rgba(0,0,0,0.7)] ring-1 ring-white/10 backdrop-blur-md sm:max-w-2xl sm:rounded-[1.9rem] sm:px-14 sm:py-12"
         >
@@ -239,7 +267,6 @@ export default function Hero() {
           </p>
         </motion.div>
 
-        {/* Invitation à défiler */}
         <motion.a
           href="#manifeste"
           initial={{ opacity: 0 }}
