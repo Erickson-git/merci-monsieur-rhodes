@@ -6,72 +6,66 @@ const COVER_IMAGE = 'chemises.jpg'
 const VIDEO_FILE = 'fond.mp4'
 
 /**
- * Hero — intro (image -> fumée) sur une vidéo de fond locale (.mp4).
- *  La vidéo joue en fond (muet) ; au moment où le nom mute en « Papa », le son
- *  se déclenche. Au défilement, le volume descend progressivement jusqu'à 50 %.
+ * Hero — démarre quand l'utilisateur « entre » (clic sur l'intro = geste qui
+ * débloque l'audio). La vidéo joue en fond ; le son reste SILENCIEUX (volume 0)
+ * jusqu'à la mutation « Monsieur » -> « Papa », où il monte tout seul.
+ * Au défilement, le volume redescend progressivement jusqu'à la moitié.
  */
-export default function Hero() {
+export default function Hero({ entered = false }) {
   const [open, setOpen] = useState(false)
   const [titre, setTitre] = useState('Monsieur')
 
   const videoRef = useRef(null)
   const sectionRef = useRef(null)
-  const mutedRef = useRef(true)
-  const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
-  const papaRef = useRef(false)
+  const volRef = useRef(1) // fraction visible (1 en haut -> 0 plus bas)
+  const papaRef = useRef(false) // le son n'est autorisé qu'après « Papa »
+  const unlockedRef = useRef(false) // l'audio a-t-il été débloqué par un geste ?
 
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
   const mp4 = `${import.meta.env.BASE_URL}assets/${VIDEO_FILE}`
 
-  const setVolume = (v01) => {
-    if (videoRef.current) videoRef.current.volume = Math.max(0, Math.min(1, v01))
-  }
-
-  // Active le son (et relance la lecture) — uniquement une fois « Papa » affiché
-  const unmuteNow = () => {
-    if (!papaRef.current) return
-    const v = videoRef.current
-    if (v) {
-      try {
-        v.muted = false
-        v.volume = 0.5 + volRef.current * 0.5
-        v.play?.()
-      } catch {
-        /* ignore */
-      }
-    }
-    mutedRef.current = false
-  }
-
-  // Déroulé : image -> fumée ; à « Papa », le nom mute ET le son se déclenche
+  // Déblocage de l'audio au premier geste (le clic « Entrer ») :
+  // on rend la vidéo "non muette" mais à volume 0 -> autorisé sans réserve,
+  // et le son pourra ensuite monter quand on le voudra.
   useEffect(() => {
-    const t1 = setTimeout(() => setOpen(true), 4500)
+    const prime = () => {
+      const v = videoRef.current
+      if (v) {
+        try {
+          v.muted = false
+          v.volume = 0
+          v.play?.()
+        } catch {
+          /* ignore */
+        }
+      }
+      unlockedRef.current = true
+      remove()
+    }
+    const remove = () => {
+      window.removeEventListener('pointerdown', prime)
+      window.removeEventListener('touchstart', prime)
+      window.removeEventListener('keydown', prime)
+    }
+    window.addEventListener('pointerdown', prime)
+    window.addEventListener('touchstart', prime)
+    window.addEventListener('keydown', prime)
+    return remove
+  }, [])
+
+  // Séquence : démarre à l'entrée. Image -> fumée, puis mutation + son à « Papa »
+  useEffect(() => {
+    if (!entered) return
+    const t1 = setTimeout(() => setOpen(true), 1300)
     const t2 = setTimeout(() => {
       setTitre('Papa')
-      papaRef.current = true
-      unmuteNow()
-    }, 10500)
+      papaRef.current = true // -> le volume va monter
+    }, 6500)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Filet de sécurité : si le navigateur bloque le son auto, le premier geste
-  // APRÈS l'apparition de « Papa » l'active.
-  useEffect(() => {
-    const onGesture = () => unmuteNow()
-    window.addEventListener('pointerdown', onGesture)
-    window.addEventListener('keydown', onGesture)
-    window.addEventListener('touchstart', onGesture)
-    return () => {
-      window.removeEventListener('pointerdown', onGesture)
-      window.removeEventListener('keydown', onGesture)
-      window.removeEventListener('touchstart', onGesture)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [entered])
 
   // Position de défilement -> fraction visible
   useEffect(() => {
@@ -88,14 +82,15 @@ export default function Hero() {
     }
   }, [])
 
-  // Lissage du volume : 100 % en haut -> 50 % quand on s'éloigne (progressif)
+  // Volume (image par image) : 0 avant « Papa » ; après, 100 % en haut -> 50 % plus bas
   useEffect(() => {
     let raf
-    let cur = 1
+    let cur = 0
     const loop = () => {
-      const target = 0.5 + volRef.current * 0.5
-      cur += (target - cur) * 0.1
-      if (!mutedRef.current) setVolume(cur)
+      const target = papaRef.current ? 0.5 + volRef.current * 0.5 : 0
+      cur += (target - cur) * 0.06 // fondu doux
+      const v = videoRef.current
+      if (v && unlockedRef.current) v.volume = Math.max(0, Math.min(1, cur))
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -107,7 +102,7 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-[100svh] min-h-[500px] w-full overflow-hidden bg-noir-900"
     >
-      {/* --- Vidéo de fond locale (.mp4) : autoplay garanti --- */}
+      {/* --- Vidéo de fond locale (.mp4) --- */}
       <div className="absolute inset-0 overflow-hidden">
         <video
           ref={videoRef}

@@ -1,17 +1,11 @@
-import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 /**
- * Intro — page d'animation affichée AVANT le site.
- * Le mot « Merci » se révèle lettre par lettre dans un cadre doré, puis
- * l'écran se lève (comme un rideau) pour ouvrir le site. Durée ~3,5 s.
+ * Intro — page d'ouverture « Cliquez pour entrer ».
+ * Le mot « Merci » se révèle, puis un clic (geste obligatoire pour débloquer
+ * l'audio) lève l'écran et lance le site avec le son.
  */
-export default function Intro({ onDone }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 3500)
-    return () => clearTimeout(t)
-  }, [onDone])
-
+export default function Intro({ onEnter }) {
   const container = {
     hidden: {},
     show: { transition: { staggerChildren: 0.06, delayChildren: 0.35 } },
@@ -27,12 +21,12 @@ export default function Intro({ onDone }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-noir-900"
+      onClick={onEnter}
+      className="fixed inset-0 z-[100] flex cursor-pointer items-center justify-center overflow-hidden bg-noir-900"
       initial={{ opacity: 1 }}
       exit={{ y: '-100%' }}
       transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
     >
-      {/* lueur dorée */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -41,7 +35,6 @@ export default function Intro({ onDone }) {
             'radial-gradient(circle at 50% 45%, rgba(191,155,70,0.18), transparent 60%)',
         }}
       />
-      {/* cadre doré qui se pose */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-5 border border-gold/30 md:inset-10"
@@ -60,7 +53,7 @@ export default function Intro({ onDone }) {
           variants={item}
           className="mb-6 text-xs uppercase tracking-luxe text-gold-soft sm:text-sm"
         >
-          Pour Monsieur Rhodes
+          Pour Monsieur RHODES
         </motion.p>
 
         <h1 className="font-serif text-7xl text-gradient-gold sm:text-8xl md:text-9xl">
@@ -76,6 +69,23 @@ export default function Intro({ onDone }) {
           className="mx-auto mt-8 h-px w-40 bg-gradient-to-r from-transparent via-gold to-transparent"
         />
       </motion.div>
+
+      {/* Invitation à entrer (le clic débloque le son) */}
+      <motion.button
+        onClick={onEnter}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.8, duration: 0.8 }}
+        className="absolute bottom-14 left-1/2 -translate-x-1/2"
+      >
+        <motion.span
+          animate={{ opacity: [0.45, 1, 0.45] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-6 py-3 text-xs uppercase tracking-luxe text-gold-soft"
+        >
+          ♪ Cliquez pour entrer
+        </motion.span>
+      </motion.button>
     </motion.div>
   )
 }
