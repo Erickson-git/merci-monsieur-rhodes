@@ -2,17 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { hero } from '../data'
 
-const VIDEO_ID = 'veRMxTZw_Zg'
 const COVER_IMAGE = 'chemises.jpg'
+const VIDEO_FILE = 'fond.mp4'
 
 /**
- * Hero — intro (image -> fumée) sur une vidéo de fond YouTube.
- *  La vidéo joue automatiquement (muet, autoplay). Le son s'active à +4 s
- *  (ou au moindre mouvement avant) et son volume descend progressivement
- *  jusqu'à la moitié (50 %) quand on s'éloigne. Un danseur entre à +10 s.
- *
- *  Tout passe par des messages à l'iframe (enablejsapi) — sans jamais
- *  recharger l'iframe, ce qui préserve l'autoplay.
+ * Hero — intro (image -> fumée) sur une vidéo de fond LOCALE (.mp4).
+ *  La vidéo locale joue toujours (autoplay muet) — aucun blocage possible.
+ *  Le son s'active à +4 s (ou au moindre mouvement avant) ; son volume descend
+ *  progressivement jusqu'à la moitié (50 %) quand on s'éloigne. Danseur à +10 s.
  */
 export default function Hero() {
   const [open, setOpen] = useState(false)
@@ -20,24 +17,17 @@ export default function Hero() {
   const [muted, setMuted] = useState(true)
   const [dancer, setDancer] = useState(false)
 
-  const iframeRef = useRef(null)
+  const videoRef = useRef(null)
   const sectionRef = useRef(null)
   const mutedRef = useRef(true)
   const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
 
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const src =
-    `https://www.youtube.com/embed/${VIDEO_ID}` +
-    `?autoplay=1&mute=1&controls=0&loop=1&playlist=${VIDEO_ID}` +
-    `&playsinline=1&modestbranding=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`
+  const mp4 = `${import.meta.env.BASE_URL}assets/${VIDEO_FILE}`
 
-  // Envoie une commande à l'iframe YouTube (ne recharge pas l'iframe)
-  const command = (func, args = []) =>
-    iframeRef.current?.contentWindow?.postMessage(
-      JSON.stringify({ event: 'command', func, args }),
-      '*',
-    )
+  const setVolume = (v01) => {
+    if (videoRef.current) videoRef.current.volume = Math.max(0, Math.min(1, v01))
+  }
 
   // Déroulé : image -> fumée, mutation du nom, entrée du danseur
   useEffect(() => {
@@ -59,9 +49,15 @@ export default function Hero() {
     const enable = () => {
       if (done) return
       done = true
-      command('unMute')
-      command('setVolume', [Math.round((50 + volRef.current * 50))])
-      command('playVideo')
+      try {
+        if (videoRef.current) {
+          videoRef.current.muted = false
+          videoRef.current.volume = 0.5 + volRef.current * 0.5
+          videoRef.current.play?.()
+        }
+      } catch {
+        /* ignore */
+      }
       mutedRef.current = false
       setMuted(false)
       remove()
@@ -92,16 +88,11 @@ export default function Hero() {
   // Lissage du volume : 100 % en haut -> 50 % quand on s'éloigne (progressif)
   useEffect(() => {
     let raf
-    let cur = 100
-    let last = -1
+    let cur = 1
     const loop = () => {
-      const target = 50 + volRef.current * 50
+      const target = 0.5 + volRef.current * 0.5
       cur += (target - cur) * 0.1
-      const v = Math.round(cur)
-      if (!mutedRef.current && v !== last) {
-        command('setVolume', [v])
-        last = v
-      }
+      if (!mutedRef.current) setVolume(cur)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -110,12 +101,14 @@ export default function Hero() {
 
   const toggleSound = (e) => {
     e.stopPropagation()
+    if (!videoRef.current) return
     if (muted) {
-      command('unMute')
+      videoRef.current.muted = false
+      videoRef.current.play?.()
       mutedRef.current = false
       setMuted(false)
     } else {
-      command('mute')
+      videoRef.current.muted = true
       mutedRef.current = true
       setMuted(true)
     }
@@ -126,16 +119,17 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-[100svh] min-h-[500px] w-full overflow-hidden bg-noir-900"
     >
-      {/* --- Vidéo de fond (iframe simple : autoplay fiable) --- */}
+      {/* --- Vidéo de fond locale (.mp4) : autoplay garanti --- */}
       <div className="absolute inset-0 overflow-hidden">
-        <iframe
-          ref={iframeRef}
-          id="hero-yt"
-          title="Fond vidéo"
-          src={src}
-          allow="autoplay; encrypted-media"
-          frameBorder="0"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2"
+        <video
+          ref={videoRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          src={mp4}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
         />
       </div>
 

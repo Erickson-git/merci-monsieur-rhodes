@@ -43,6 +43,9 @@ src/components/Lookbook.jsx
 src/components/GiftModal.jsx
 src/components/GiftCard.jsx
 
+# --- Outils locaux ---
+/.tools/
+
 # --- Images sources / brouillons (les versions utilisees sont renommees) ---
 WhatsApp Image*.jpeg
 (eBay)*.jpg
