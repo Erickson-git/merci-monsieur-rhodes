@@ -36,13 +36,17 @@ export default function Hero() {
   const [muted, setMuted] = useState(true)
   const [dancer, setDancer] = useState(false)
 
-  const holderRef = useRef(null) // div remplacé par l'iframe YouTube
-  const playerRef = useRef(null) // instance YT.Player
+  const playerRef = useRef(null) // instance YT.Player (contrôle du volume)
   const sectionRef = useRef(null)
   const mutedRef = useRef(true)
   const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
 
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const src =
+    `https://www.youtube.com/embed/${VIDEO_ID}` +
+    `?autoplay=1&mute=1&controls=0&loop=1&playlist=${VIDEO_ID}` +
+    `&playsinline=1&modestbranding=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`
 
   const yt = (method, ...args) => {
     try {
@@ -52,42 +56,25 @@ export default function Hero() {
     }
   }
 
-  // --- Création du lecteur YouTube ---
+  // --- API YouTube attachée à l'iframe existante (pour piloter le volume) ---
   useEffect(() => {
     let cancelled = false
     loadYouTubeApi().then((YT) => {
-      if (cancelled || !YT || !holderRef.current) return
-      playerRef.current = new YT.Player(holderRef.current, {
-        videoId: VIDEO_ID,
-        playerVars: {
-          autoplay: 1,
-          mute: 1,
-          controls: 0,
-          loop: 1,
-          playlist: VIDEO_ID,
-          playsinline: 1,
-          modestbranding: 1,
-          rel: 0,
-          fs: 0,
-          disablekb: 1,
-          iv_load_policy: 3,
-        },
+      if (cancelled || !YT || playerRef.current) return
+      playerRef.current = new YT.Player('hero-yt', {
         events: {
           onReady: (e) => {
-            e.target.mute()
-            e.target.setVolume(100)
-            e.target.playVideo()
+            try {
+              e.target.setVolume(100)
+            } catch {
+              /* ignore */
+            }
           },
         },
       })
     })
     return () => {
       cancelled = true
-      try {
-        playerRef.current?.destroy?.()
-      } catch {
-        /* ignore */
-      }
     }
   }, [])
 
@@ -177,11 +164,16 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-[100svh] min-h-[500px] w-full overflow-hidden bg-noir-900"
     >
-      {/* --- Vidéo de fond (API YouTube) --- */}
+      {/* --- Vidéo de fond (iframe directe : autoplay fiable) --- */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="yt-cover pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2">
-          <div ref={holderRef} className="h-full w-full" />
-        </div>
+        <iframe
+          id="hero-yt"
+          title="Fond vidéo"
+          src={src}
+          allow="autoplay; encrypted-media"
+          frameBorder="0"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2"
+        />
       </div>
 
       {/* Voiles pour la lisibilité */}
