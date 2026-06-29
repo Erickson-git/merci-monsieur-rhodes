@@ -51,24 +51,37 @@ export default function Hero() {
     }
   }, [])
 
-  // Active le son au tout premier contact (exigence navigateur)
+  // Active le son au moindre signe d'activite (souris, defilement, molette,
+  // toucher, clavier) -> aucun besoin de cliquer le bouton. On tente aussi une
+  // activation immediate (certains navigateurs l'autorisent).
   useEffect(() => {
+    const events = [
+      'pointerdown',
+      'pointermove',
+      'mousemove',
+      'touchstart',
+      'keydown',
+      'wheel',
+      'scroll',
+    ]
     const enable = () => {
       command('unMute')
+      command('setVolume', [Math.round(volRef.current * 100)])
       command('playVideo')
       mutedRef.current = false
       setMuted(false)
       remove()
     }
-    const remove = () => {
-      window.removeEventListener('pointerdown', enable)
-      window.removeEventListener('keydown', enable)
-      window.removeEventListener('touchstart', enable)
+    const remove = () => events.forEach((e) => window.removeEventListener(e, enable))
+    events.forEach((e) => window.addEventListener(e, enable, { passive: true }))
+
+    // Tentative d'activation immediate (selon la politique du navigateur)
+    const t = setTimeout(() => command('unMute'), 1500)
+
+    return () => {
+      remove()
+      clearTimeout(t)
     }
-    window.addEventListener('pointerdown', enable)
-    window.addEventListener('keydown', enable)
-    window.addEventListener('touchstart', enable)
-    return remove
   }, [])
 
   // Position de défilement -> volume cible (mesuré sur la hauteur réelle du hero)
