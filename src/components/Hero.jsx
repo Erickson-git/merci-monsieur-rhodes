@@ -24,42 +24,39 @@ export default function Hero({ entered = false }) {
   const img = `${import.meta.env.BASE_URL}assets/${COVER_IMAGE}`
   const mp4 = `${import.meta.env.BASE_URL}assets/${VIDEO_FILE}`
 
-  // Déblocage de l'audio au premier geste (le clic « Entrer ») :
-  // on rend la vidéo "non muette" mais à volume 0 -> autorisé sans réserve,
-  // et le son pourra ensuite monter quand on le voudra.
+  // Séquence pilotée par l'entrée/la sortie.
+  //  - À l'entrée (clic = geste) : on débloque l'audio (volume 0), puis le son
+  //    monte tout seul quand le nom devient « Papa ».
+  //  - À la sortie (« Quitter ») : on coupe le son et on réinitialise.
   useEffect(() => {
-    const prime = () => {
-      const v = videoRef.current
+    const v = videoRef.current
+    if (!entered) {
+      papaRef.current = false
+      setOpen(false)
+      setTitre('Monsieur')
       if (v) {
         try {
-          v.muted = false
-          v.volume = 0
-          v.play?.()
+          v.muted = true
         } catch {
           /* ignore */
         }
       }
+      return
+    }
+    if (v) {
+      try {
+        v.muted = false
+        v.volume = 0
+        v.play?.()
+      } catch {
+        /* ignore */
+      }
       unlockedRef.current = true
-      remove()
     }
-    const remove = () => {
-      window.removeEventListener('pointerdown', prime)
-      window.removeEventListener('touchstart', prime)
-      window.removeEventListener('keydown', prime)
-    }
-    window.addEventListener('pointerdown', prime)
-    window.addEventListener('touchstart', prime)
-    window.addEventListener('keydown', prime)
-    return remove
-  }, [])
-
-  // Séquence : démarre à l'entrée. Image -> fumée, puis mutation + son à « Papa »
-  useEffect(() => {
-    if (!entered) return
     const t1 = setTimeout(() => setOpen(true), 1300)
     const t2 = setTimeout(() => {
       setTitre('Papa')
-      papaRef.current = true // -> le volume va monter
+      papaRef.current = true
     }, 6500)
     return () => {
       clearTimeout(t1)
