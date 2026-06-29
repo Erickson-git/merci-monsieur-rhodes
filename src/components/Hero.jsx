@@ -34,6 +34,7 @@ export default function Hero() {
   const [open, setOpen] = useState(false)
   const [titre, setTitre] = useState('Monsieur')
   const [muted, setMuted] = useState(true)
+  const [dancer, setDancer] = useState(false)
 
   const holderRef = useRef(null) // div remplacé par l'iframe YouTube
   const playerRef = useRef(null) // instance YT.Player
@@ -94,9 +95,11 @@ export default function Hero() {
   useEffect(() => {
     const t1 = setTimeout(() => setOpen(true), 4500)
     const t2 = setTimeout(() => setTitre('Papa'), 10500)
+    const t3 = setTimeout(() => setDancer(true), 10000) // le danseur entre à +10 s
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
+      clearTimeout(t3)
     }
   }, [])
 
@@ -290,6 +293,47 @@ export default function Hero() {
         <span aria-hidden>{muted ? '🔇' : '🔊'}</span>
         {muted ? 'Son' : 'Muet'}
       </button>
+
+      {/* --- Petit personnage qui danse (entre à +10 s) --- */}
+      <AnimatePresence>
+        {dancer && (
+          <motion.div
+            key="dancer"
+            initial={{ opacity: 0, scale: 0, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 15 }}
+            className="absolute bottom-6 left-5 z-40 select-none sm:bottom-8 sm:left-8"
+          >
+            {/* notes de musique qui s'envolent */}
+            <motion.span
+              aria-hidden
+              animate={{ y: [-2, -18, -2], opacity: [0, 1, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
+              className="absolute -right-3 -top-5 text-lg text-gold-soft"
+            >
+              ♪
+            </motion.span>
+            <motion.span
+              aria-hidden
+              animate={{ y: [-2, -22, -2], opacity: [0, 1, 0] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 0.5, ease: 'easeOut' }}
+              className="absolute -right-7 -top-2 text-base text-gold/80"
+            >
+              ♫
+            </motion.span>
+
+            {/* le danseur */}
+            <motion.div
+              animate={{ rotate: [-13, 13, -13], y: [0, -10, 0], scaleY: [1, 0.9, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut' }}
+              className="text-5xl drop-shadow-lg sm:text-6xl"
+            >
+              🕺
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
