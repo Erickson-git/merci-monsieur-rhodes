@@ -51,9 +51,8 @@ export default function Hero() {
     }
   }, [])
 
-  // Active le son au moindre signe d'activite (souris, defilement, molette,
-  // toucher, clavier) -> aucun besoin de cliquer le bouton. On tente aussi une
-  // activation immediate (certains navigateurs l'autorisent).
+  // Le son s'active AUTOMATIQUEMENT 4 s apres le lancement de la video
+  // (et plus tot au moindre mouvement, si l'utilisateur agit avant).
   useEffect(() => {
     const events = [
       'pointerdown',
@@ -64,19 +63,19 @@ export default function Hero() {
       'wheel',
       'scroll',
     ]
+    let done = false
+    const remove = () => events.forEach((e) => window.removeEventListener(e, enable))
     const enable = () => {
+      if (done) return
+      done = true
       command('unMute')
-      command('setVolume', [Math.round(volRef.current * 100)])
       command('playVideo')
       mutedRef.current = false
       setMuted(false)
       remove()
     }
-    const remove = () => events.forEach((e) => window.removeEventListener(e, enable))
     events.forEach((e) => window.addEventListener(e, enable, { passive: true }))
-
-    // Tentative d'activation immediate (selon la politique du navigateur)
-    const t = setTimeout(() => command('unMute'), 1500)
+    const t = setTimeout(enable, 4000) // activation auto a +4 s
 
     return () => {
       remove()
@@ -105,7 +104,9 @@ export default function Hero() {
     let cur = 100
     let last = -1
     const loop = () => {
-      const target = volRef.current * 100
+      // Plein volume en haut (100 %), reduit progressivement jusqu'a la moitie
+      // (50 %) quand on s'eloigne de la video.
+      const target = 50 + volRef.current * 50
       cur += (target - cur) * 0.1 // easing
       const v = Math.round(cur)
       if (!mutedRef.current && v !== last) {
