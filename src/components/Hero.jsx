@@ -5,30 +5,14 @@ import { hero } from '../data'
 const VIDEO_ID = 'veRMxTZw_Zg'
 const COVER_IMAGE = 'chemises.jpg'
 
-// Charge l'API IFrame de YouTube une seule fois.
-let ytApiPromise
-function loadYouTubeApi() {
-  if (typeof window === 'undefined') return Promise.resolve(null)
-  if (window.YT && window.YT.Player) return Promise.resolve(window.YT)
-  if (!ytApiPromise) {
-    ytApiPromise = new Promise((resolve) => {
-      const prev = window.onYouTubeIframeAPIReady
-      window.onYouTubeIframeAPIReady = () => {
-        if (typeof prev === 'function') prev()
-        resolve(window.YT)
-      }
-      const tag = document.createElement('script')
-      tag.src = 'https://www.youtube.com/iframe_api'
-      document.head.appendChild(tag)
-    })
-  }
-  return ytApiPromise
-}
-
 /**
- * Hero — intro (image -> fumée) sur une vidéo de fond (API YouTube).
- *  Son : auto à +4 s (ou au moindre mouvement avant) ; au défilement, le volume
- *  descend PROGRESSIVEMENT jusqu'à la moitié (50 %), via l'API setVolume.
+ * Hero — intro (image -> fumée) sur une vidéo de fond YouTube.
+ *  La vidéo joue automatiquement (muet, autoplay). Le son s'active à +4 s
+ *  (ou au moindre mouvement avant) et son volume descend progressivement
+ *  jusqu'à la moitié (50 %) quand on s'éloigne. Un danseur entre à +10 s.
+ *
+ *  Tout passe par des messages à l'iframe (enablejsapi) — sans jamais
+ *  recharger l'iframe, ce qui préserve l'autoplay.
  */
 export default function Hero() {
   const [open, setOpen] = useState(false)
@@ -36,7 +20,7 @@ export default function Hero() {
   const [muted, setMuted] = useState(true)
   const [dancer, setDancer] = useState(false)
 
-  const playerRef = useRef(null) // instance YT.Player (contrôle du volume)
+  const iframeRef = useRef(null)
   const sectionRef = useRef(null)
   const mutedRef = useRef(true)
   const volRef = useRef(1) // fraction visible du hero (1 en haut -> 0 plus bas)
@@ -48,41 +32,18 @@ export default function Hero() {
     `?autoplay=1&mute=1&controls=0&loop=1&playlist=${VIDEO_ID}` +
     `&playsinline=1&modestbranding=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`
 
-  const yt = (method, ...args) => {
-    try {
-      playerRef.current?.[method]?.(...args)
-    } catch {
-      /* lecteur pas encore prêt */
-    }
-  }
+  // Envoie une commande à l'iframe YouTube (ne recharge pas l'iframe)
+  const command = (func, args = []) =>
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func, args }),
+      '*',
+    )
 
-  // --- API YouTube attachée à l'iframe existante (pour piloter le volume) ---
-  useEffect(() => {
-    let cancelled = false
-    loadYouTubeApi().then((YT) => {
-      if (cancelled || !YT || playerRef.current) return
-      playerRef.current = new YT.Player('hero-yt', {
-        events: {
-          onReady: (e) => {
-            try {
-              e.target.setVolume(100)
-            } catch {
-              /* ignore */
-            }
-          },
-        },
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Déroulé temporel (image -> fumée, mutation du nom)
+  // Déroulé : image -> fumée, mutation du nom, entrée du danseur
   useEffect(() => {
     const t1 = setTimeout(() => setOpen(true), 4500)
     const t2 = setTimeout(() => setTitre('Papa'), 10500)
-    const t3 = setTimeout(() => setDancer(true), 10000) // le danseur entre à +10 s
+    const t3 = setTimeout(() => setDancer(true), 10000)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
@@ -98,8 +59,9 @@ export default function Hero() {
     const enable = () => {
       if (done) return
       done = true
-      yt('unMute')
-      yt('playVideo')
+      command('unMute')
+      command('setVolume', [Math.round((50 + volRef.current * 50))])
+      command('playVideo')
       mutedRef.current = false
       setMuted(false)
       remove()
@@ -137,7 +99,7 @@ export default function Hero() {
       cur += (target - cur) * 0.1
       const v = Math.round(cur)
       if (!mutedRef.current && v !== last) {
-        yt('setVolume', v)
+        command('setVolume', [v])
         last = v
       }
       raf = requestAnimationFrame(loop)
@@ -149,11 +111,11 @@ export default function Hero() {
   const toggleSound = (e) => {
     e.stopPropagation()
     if (muted) {
-      yt('unMute')
+      command('unMute')
       mutedRef.current = false
       setMuted(false)
     } else {
-      yt('mute')
+      command('mute')
       mutedRef.current = true
       setMuted(true)
     }
@@ -164,9 +126,10 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-[100svh] min-h-[500px] w-full overflow-hidden bg-noir-900"
     >
-      {/* --- Vidéo de fond (iframe directe : autoplay fiable) --- */}
+      {/* --- Vidéo de fond (iframe simple : autoplay fiable) --- */}
       <div className="absolute inset-0 overflow-hidden">
         <iframe
+          ref={iframeRef}
           id="hero-yt"
           title="Fond vidéo"
           src={src}
@@ -297,7 +260,6 @@ export default function Hero() {
             transition={{ type: 'spring', stiffness: 260, damping: 15 }}
             className="absolute bottom-6 left-5 z-40 select-none sm:bottom-8 sm:left-8"
           >
-            {/* notes de musique qui s'envolent */}
             <motion.span
               aria-hidden
               animate={{ y: [-2, -18, -2], opacity: [0, 1, 0] }}
@@ -314,8 +276,6 @@ export default function Hero() {
             >
               ♫
             </motion.span>
-
-            {/* le danseur */}
             <motion.div
               animate={{ rotate: [-13, 13, -13], y: [0, -10, 0], scaleY: [1, 0.9, 1] }}
               transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut' }}
