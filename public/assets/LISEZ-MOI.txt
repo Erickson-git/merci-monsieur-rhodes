@@ -1,0 +1,23 @@
+=========================================================
+ DEPOSEZ VOS IMAGES ICI
+=========================================================
+
+Placez vos photos dans ce dossier avec EXACTEMENT ces noms
+(ce sont ceux references dans src/data.js) :
+
+  montre.png     -> La montre
+  parfums.png    -> Les parfums
+  chemises.png   -> Les chemises
+  argent.png     -> L'argent
+  dollar.png     -> Le premier billet de 10 dollars
+
+Formats acceptes : .png, .jpg, .jpeg, .webp
+(si vous changez l'extension, mettez aussi a jour le nom
+ correspondant dans src/data.js)
+
+Conseil de pro : pour un chargement ultra-rapide, exportez
+vos images en .webp et a une largeur d'environ 1000 px.
+
+Tant qu'une image est absente, un cadre dore elegant
+s'affiche automatiquement a sa place — le site reste donc
+toujours presentable.

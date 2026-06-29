@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream text-noir-800 font-sans antialiased;
+    /* Fond clair & luxueux : voiles dores tres subtils sur ivoire */
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(191, 155, 70, 0.10), transparent 38%),
+      radial-gradient(circle at 88% 92%, rgba(168, 133, 47, 0.08), transparent 42%),
+      linear-gradient(180deg, #fbf8f2 0%, #f6f2ea 55%, #f1ebe0 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-gold/25 text-noir-900;
+  }
+}
+
+@layer components {
+  /* Verre depoli clair */
+  .glass {
+    @apply bg-white/60 backdrop-blur-xl border border-white/70 shadow-card;
+  }
+
+  /* Verre depoli sombre (bandeaux de contraste) */
+  .glass-dark {
+    @apply bg-white/[0.06] backdrop-blur-xl border border-white/10;
+  }
+
+  /* Texte avec degrade dore */
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #d8be7e 0%, #bf9b46 45%, #a8852f 100%);
+  }
+
+  /* Filet dore decoratif */
+  .gold-rule {
+    @apply h-px w-24 mx-auto;
+    background: linear-gradient(90deg, transparent, #bf9b46, transparent);
+  }
+
+  /* Surlignage de titre de section (mode magazine) */
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-luxe text-gold;
+  }
+}
+
+@layer utilities {
+  /* Effet Ken Burns (zoom lent) pour les images de diaporama */
+  .ken-burns {
+    animation: kenburns 7s ease-out forwards;
+  }
+
+  /* Barre de defilement claire et discrete */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-cream-200;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-cream-300 rounded-full border-2 border-cream-200;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold/60;
+  }
+}
+
+/* --- Impression / PDF : ne montrer que le livre (couverture + texte) ------ */
+.print-book {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  /* On masque tout, puis on ne reaffiche que le livre imprimable */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-book,
+  .print-book * {
+    visibility: visible !important;
+  }
+  .print-book {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 1.5rem 2rem;
+    color: #111 !important;
+  }
+  .print-book .print-cover {
+    break-after: page;
+    page-break-after: always;
+    text-align: center;
+  }
+  .print-book .print-cover img {
+    display: block;
+    max-width: 70%;
+    margin: 1rem auto;
+  }
+}

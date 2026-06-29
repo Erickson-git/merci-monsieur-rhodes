@@ -1,0 +1,50 @@
+# Dependances
+node_modules
+.pnp
+.pnp.js
+
+# Build
+dist
+dist-ssr
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editeurs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Hors site : le roman, ses outils et fichiers de travail (gardes en local) ---
+/Roman - Le Premier Dollar.md
+/Novel - The First Dollar.md
+/make-book.mjs
+/sync-book.ps1
+/_book_*.html
+src/le-premier-dollar.md
+src/the-first-dollar.en.md
+src/roman.md
+src/components/Roman.jsx
+src/components/Narration.jsx
+src/components/Share.jsx
+src/components/Vignettes.jsx
+src/components/Lookbook.jsx
+src/components/GiftModal.jsx
+src/components/GiftCard.jsx
+
+# --- Images sources / brouillons (les versions utilisees sont renommees) ---
+WhatsApp Image*.jpeg
+(eBay)*.jpg
+page de couverture du livre/
+public/assets/couverture.jpg
